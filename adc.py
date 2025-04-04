@@ -34,7 +34,7 @@ def main():
         input_range= (-8, 8),
         choice="mid-riser",
     )
-    tab1,tab2 = st.tabs(["Quantizador","Sinais"])
+    tab1,tab2,tab3 = st.tabs(["Quantizador","Sinais", "Tabela"])
     with tab1:
         x = np.linspace(-10, 10, 1000)
         y = quantizer.quantize(x)
@@ -57,7 +57,7 @@ def main():
             times,
             [m(t) for t in times],
             label="$m(t)$",
-            color='r',
+            color="C2",
         )
 
         instantes, amostras = amostragem(m,Ta,a,Na)
@@ -67,7 +67,7 @@ def main():
             linestyle="None",
             marker="o",
             label="$m[n]$",
-            color='r',
+            color="C2",
         )
 
         amostras_q = quantizer.quantize(amostras)
@@ -77,19 +77,45 @@ def main():
             linestyle="None",
             marker="o",
             label="$m_q[n]$",
-            color='b',
+            color="C1",
         )
         m_hat = reconstrucao(amostras_q, a, Ta) # type: ignore
         ax.plot(
             times,
             [m_hat(t) for t in times],
             label="$\\hat(m)(t)$",
-            color='b',
+            color="C1",
         )
+        e_n = amostras - amostras_q
+        ax.plot(
+            instantes,
+            e_n,
+            linestyle="None",
+            marker="o",
+            label="$e[n]$",
+            color="C3",
+        )
+        ax.plot(
+            times,
+            [m(t) - m_hat(t) for t in times],
+            label="$e(t)$",
+            color="C3",
+        )
+        indices = quantizer.digitize(amostras)
+        bits = komm.int_to_bits(indices, Nb)
 
         ax.grid()
         ax.set_xlabel("$t$ [s]")
         ax.legend()
         st.pyplot(fig)
+
+    with tab3:
+        st.table({
+            "$t$ [ms]": [1000*t for t in instantes],
+            "$m(t)$ [v]": amostras,
+            "$m_q(t)$ [v]": amostras_q,
+            "indices": indices,
+            "bits": ["".join(map(str,reversed(b))) for b in bits],
+        })
 
 main()
