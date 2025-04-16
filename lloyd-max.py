@@ -14,6 +14,9 @@ def uniform(x: float) -> float:
 def laplacian(x: float) -> float:
     return 0.5*exp(-abs(x))
 
+def gaussian_mixture(x: float) -> float:
+    return (0.25 * (1/0.5) * gaussian((x+3)/0.5) + 0.75 * (1/0.8) * gaussian((x-2)/0.8))
+
 def valor_esperado_condicionado(
         pdf: Callable[[float], float],
         xi: float, # inicial
@@ -55,7 +58,7 @@ def main():
     with col2:
         pdf_control = st.segmented_control(
             label="PDF",
-            options= ["Uniform", "Gaussian", "Laplacian"],
+            options= ["Uniform", "Gaussian", "Laplacian", "Gaussian mixture"],
             default= "Uniform",
         )
         if pdf_control == "Uniform":
@@ -64,8 +67,20 @@ def main():
             pdf = gaussian
         elif pdf_control == "Laplacian":
             pdf = laplacian
+        elif pdf_control == "Gaussian mixture":
+            pdf = gaussian_mixture
         else:
             raise(ValueError)
+        
+    a, b = -5, 5
+    vss: list[list[float]] = []
+    lss: list[list[float]] = []
+
+    vss.append(list(np.linspace(a, b, L))) # Palpite inicial
+    for i in range(60):
+        vs, ls = lloyd_max_step(pdf,a,b,L,vss[i])
+        vss.append(vs)
+        lss.append(ls)
     
     tab1, tab2, tab3 = st.tabs(["PDF","Passo-a-passo","MSQE"])
 
@@ -74,22 +89,14 @@ def main():
         fig.set_figheight(4)
         xs = np.linspace(-6, 6, 1000)
         ax.plot(xs, [pdf(x) for x in xs])
+        for l in lss[-1]:
+            ax.axvline(l, color="C2", linestyle="--")
         ax.set_xlabel("$m$")
         ax.set_ylabel("$f(m)$")
         ax.set_ylim(-0.05, 0.55)
         ax.grid()
         st.pyplot(fig)
     with tab2:
-        a, b = -5, 5
-        vss: list[list[float]] = []
-        lss: list[list[float]] = []
-
-        vss.append(list(np.linspace(a, b, L))) # Palpite inicial
-        for i in range(60):
-            vs, ls = lloyd_max_step(pdf,a,b,L,vss[i])
-            vss.append(vs)
-            lss.append(ls)
-        
         fig, ax = plt.subplots()
 
         for i in range(60):
