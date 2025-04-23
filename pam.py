@@ -44,6 +44,29 @@ def main():
         fig.set_figheight(4)
         st.pyplot(fig)
     
+    xn = [0.4, 0.0, -0.2, 1.0, -1.0, -0.5]
+    sps = 100 # Samples per symbol
+    pam = komm.TransmitFilter(pulse, sps)
+    yt = pam(xn)
+    t = pam.time(xn)
+
+    with tab2:
+        fig, ax = plt.subplots(2,1)
+        ax[0].stem(xn)
+        ax[0].set_xlabel("$n$")
+        ax[0].set_ylabel("$x[n]$")
+        ax[0].grid()
+        ax[0].set_xlim([-1, 7])
+
+        ax[1].plot(t, yt)
+        ax[1].plot(xn, linestyle="None", marker="o")
+        ax[1].set_xlabel("$t$")
+        ax[1].set_ylabel("$y(t)$")
+        ax[1].grid()
+        ax[1].set_xlim([-1, 7])
+        fig.tight_layout()
+        st.pyplot(fig)
+    
 
 if __name__ == "__main__":
     main()
