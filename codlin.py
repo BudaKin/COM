@@ -22,6 +22,9 @@ def ami_mapping(bn):
     return xn
 
 def main():
+    A = 1.0
+    Tb = 1.0
+
     pulse_menu = {
         "Retangular NRZ" : komm.RectangularPulse(1),
         "Retangular RZ" : komm.RectangularPulse(0.5),
@@ -45,6 +48,12 @@ def main():
     )
     if pulse_choice is None or mapping_choice is None:
         raise Exception("Nenhum Pulso/Mapeamento escolhido.")
+    match (mapping_choice, pulse_choice):
+        case("Polar","Retangular NRZ"):
+            psd_teo = lambda f: A**2 * Tb * np.sinc(Tb * f)**2
+        case _:
+            raise ValueError("Combinação não implementada")
+
     pulse: abc.Pulse = pulse_menu[pulse_choice]
     mapping = mapping_menu[mapping_choice]
     tab1, tab2, tab3 = st.tabs(["Pulso", "Sinal", "PSD"])
@@ -98,8 +107,6 @@ def main():
         st.pyplot(fig)
 
     with tab3:
-        A = 1.0
-        Tb = 1.0
         Rb = 1/Tb
         fa = sps * Rb # Freq de amostragem (samples/s)
         n_bits = 50
@@ -115,11 +122,10 @@ def main():
         Yfs = fftshift(fft(yts)) / sps
 
         psd_sim = np.mean(np.abs(Yfs)**2/dur, axis = 0) # axis C0luna, L1nha
-        psd_teo = A**2 * Tb * np.sinc(Tb * f) ** 2
 
         fig, ax = plt.subplots()
         ax.plot(f, psd_sim, label="Simulado")
-        ax.plot(f, psd_teo, label="Teórico")
+        ax.plot(f, psd_teo(f), label="Teórico")
         ax.set_xlim(-4, 4)
         ax.legend()
         ax.grid()
