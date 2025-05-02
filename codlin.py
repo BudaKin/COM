@@ -25,32 +25,40 @@ def main():
     A = 1.0
     Tb = 1.0
 
-    pulse_menu = {
-        "Retangular NRZ" : komm.RectangularPulse(1),
-        "Retangular RZ" : komm.RectangularPulse(0.5),
-        "Manchester" : komm.ManchesterPulse(),
-    }
     mapping_menu = {
         "Polar": polar_mapping,
         "On-off": on_off_mapping,
         "AMI": ami_mapping,
     }
+    pulse_menu = {
+        "Retangular NRZ" : komm.RectangularPulse(1),
+        "Retangular RZ" : komm.RectangularPulse(0.5),
+        "Manchester" : komm.ManchesterPulse(),
+    }
+    
     st.title("Códigos de Linha")
-    pulse_choice = st.segmented_control(
-        label="Pulso:",
-        options=pulse_menu.keys(),
-        default="Retangular NRZ",
-    )
+
     mapping_choice = st.segmented_control(
         label="Mapeamento:",
         options=mapping_menu.keys(),
         default="Polar",
     )
+    pulse_choice = st.segmented_control(
+        label="Pulso:",
+        options=pulse_menu.keys(),
+        default="Retangular NRZ",
+    )
+
     if pulse_choice is None or mapping_choice is None:
         raise Exception("Nenhum Pulso/Mapeamento escolhido.")
     match (mapping_choice, pulse_choice):
         case("Polar","Retangular NRZ"):
             psd_teo = lambda f: A**2 * Tb * np.sinc(Tb * f)**2
+        case("On-off","Retangular RZ"):
+        # Sem os impulsos
+            psd_teo = lambda f: (A**2 * Tb)/16 * np.sinc(Tb/2 * f)**2
+        case("Polar","Manchester"):
+            psd_teo = lambda f: (A**2 * Tb) * np.sinc(Tb/2 * f)**2 * np.sin(2* np.pi * Tb/4 * f)**2
         case _:
             raise ValueError("Combinação não implementada")
 
@@ -127,6 +135,7 @@ def main():
         ax.plot(f, psd_sim, label="Simulado")
         ax.plot(f, psd_teo(f), label="Teórico")
         ax.set_xlim(-4, 4)
+        ax.set_ylim(-0.1, 1.1)
         ax.legend()
         ax.grid()
         st.pyplot(fig)
