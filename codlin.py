@@ -54,11 +54,20 @@ def main():
     match (mapping_choice, pulse_choice):
         case("Polar","Retangular NRZ"):
             psd_teo = lambda f: A**2 * Tb * np.sinc(Tb * f)**2
+        case("Polar","Retangular RZ"):
+            psd_teo = lambda f: A**2 * Tb/4 * np.sinc(Tb/2 * f)**2
         case("On-off","Retangular RZ"):
-        # Sem os impulsos
+            # Sem os impulsos
             psd_teo = lambda f: (A**2 * Tb)/16 * np.sinc(Tb/2 * f)**2
+        case("On-off","Retangular NRZ"):
+            # Sem o impulso
+            psd_teo = lambda f: (A**2 * Tb)/4 * np.sinc(Tb * f)**2
         case("Polar","Manchester"):
             psd_teo = lambda f: (A**2 * Tb) * np.sinc(Tb/2 * f)**2 * np.sin(2* np.pi * Tb/4 * f)**2
+        case("AMI", "Retangular NRZ"):
+            psd_teo = lambda f: (A**2 * Tb) * np.sinc(Tb * f)**2 * np.sin(np.pi * Tb * f)**2
+        case("AMI", "Retangular RZ"):
+            psd_teo = lambda f: (A**2 * Tb/4) * np.sinc(Tb/2 * f)**2 * np.sin(np.pi * Tb * f)**2
         case _:
             raise ValueError("Combinação não implementada")
 
@@ -95,7 +104,7 @@ def main():
     pam = komm.TransmitFilter(pulse, sps)
     xn = mapping(bn)
     yt = pam(xn)
-    t = pam.time(xn)
+    t, _ = pam.axes(xn)
 
     with tab2:
         fig, ax = plt.subplots(2,1)
