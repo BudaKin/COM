@@ -10,6 +10,7 @@ def main():
         "Retangular RZ" : komm.RectangularPulse(0.5),
         "Manchester" : komm.ManchesterPulse(),
         "Sinc" : komm.SincPulse(),
+        "Cosseno Levantado" : komm.RaisedCosinePulse(0.5),
     }
     st.title("PAM")
     pulse_choice = st.segmented_control(
@@ -48,7 +49,7 @@ def main():
     sps = 100 # Samples per symbol
     pam = komm.TransmitFilter(pulse, sps)
     yt = pam(xn)
-    t = pam.time(xn)
+    t, _ = pam.axes(xn)
 
     with tab2:
         fig, ax = plt.subplots(2,1)
