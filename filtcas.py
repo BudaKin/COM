@@ -93,4 +93,5 @@ with tab1:
     st.pyplot(fig)
 
 with tab2:
+    
     pass
