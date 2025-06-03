@@ -90,17 +90,95 @@ def main():
 
         
     with tab2:
-        Pb = 1e-3
+        Pb_teo = 1e-3
         No = 2e-4
+        A = 10.0
 
-        Q_inv = komm.gaussian_q_inv(Pb)
+        Q_inv = komm.gaussian_q_inv(Pb_teo)
         Eb = (Q_inv*np.sqrt(No)/np.sqrt(2))**2
+        st.metric("Eb", f"{Eb * 1e6:.2f} µJ")
         Tb = Eb/50
-        Tb_u = Tb*1e6
-        st.metric("Tb", f"{Tb_u:.2f} s")
+        st.metric("Tb", f"{Tb * 1e6:.2f} µs")
         Rb = 1/Tb
-        Rb_k = Rb*1e-3
-        st.metric("Rb", f"{Rb_k:.2f} kbits/s")
+        st.metric("Rb", f"{Rb * 1e-3:.2f} kbits/s")
+        Pb_teo = komm.gaussian_q(np.sqrt(2*Eb/No))
+
+        # Eb = A**2 * Tb /2 # Valor teste
+        # Tb = 52.36e3 # Valor teste
+        # Rb = 19.09e-6 # Valor teste
+
+        # Simulação
+        n_bits = 10000 # Número de bits
+        rng=np.random.default_rng(seed=42)
+        dms = komm.DiscreteMemorylessSource(
+            pmf=[0.5,0.5],
+            rng=rng,
+        )
+
+        sps = 100
+        pulse = komm.RectangularPulse(0.5)
+        tx_filter = komm.TransmitFilter(pulse, sps)
+
+        bits = dms(n_bits)
+
+        x_n = 2.0*bits - 1.0 # Polar
+        s_t = A*tx_filter(x_n)
+        ts, _ = tx_filter.axes(x_n)
+        ts *= Tb
+
+        fig, ax = plt.subplots(3, 1, figsize=(6, 5))
+
+        ax[0].plot(ts/1e-6, s_t, color="C0")
+        ax[0].set_xlim(0, 10*Tb/1e-6)
+        ax[0].set_xlabel("$t$ (µs)")
+        ax[0].set_ylabel("$s(t)$ (V)")
+        ax[0].set_xticks(np.arange(0, 1001, 100))
+        ax[0].grid()
+
+        signal_power = A**2 / 2
+        snr = signal_power / (No/2)
+        Ta = Tb/sps
+        fa = 1/Ta
+
+        awgn = komm.AWGNChannel(
+            signal_power=signal_power,
+            snr=snr/fa,
+            rng=rng,
+        )
+
+        r_t = awgn(s_t)
+
+        ax[1].plot(ts/1e-6, r_t, color="C1")
+        ax[1].set_xlim(0, 10*Tb/1e-6)
+        ax[1].set_xlabel("$t$ (µs)")
+        ax[1].set_ylabel("$r(t)$ (V)")
+        ax[1].set_xticks(np.arange(0, 1001, 100))
+        ax[1].grid()
+        fig.tight_layout()
+
+        t = np.arange(0.0, Tb, Ta)
+        hr_t = pulse.waveform(1 - t/Tb)
+
+        y_t = np.convolve(hr_t, r_t)/sps
+        y_t = y_t[0:s_t.size]
+
+        ax[2].plot(ts/1e-6, y_t, color="C2")
+        ax[2].set_xlim(0, 10*Tb/1e-6)
+        ax[2].set_xlabel("$t$ (µs)")
+        ax[2].set_ylabel("$y(t)$ (V)")
+        ax[2].set_xticks(np.arange(0, 1001, 100))
+        ax[2].grid()
+
+        y_n = y_t[sps-1::sps] # Amostrador de sps para sps
+
+        bits_hat = (y_n > 0).astype(int) # Decisor
+
+        Pb_sim = np.mean(bits != bits_hat) # BER = Bit error rate
+
+        st.metric("$P_b$ Teórica", f"{Pb_teo:.2%}")
+        st.metric("$P_b$ Simulada", f"{Pb_sim:.2%}")
+
+        st.pyplot(fig)
 
 
 if __name__ == "__main__":
