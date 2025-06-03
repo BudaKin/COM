@@ -97,18 +97,18 @@ def main():
         Q_inv = komm.gaussian_q_inv(Pb_teo)
         Eb = (Q_inv*np.sqrt(No)/np.sqrt(2))**2
         st.metric("Eb", f"{Eb * 1e6:.2f} µJ")
-        Tb = Eb/50
+        Tb = 2*Eb/A**2
         st.metric("Tb", f"{Tb * 1e6:.2f} µs")
         Rb = 1/Tb
         st.metric("Rb", f"{Rb * 1e-3:.2f} kbits/s")
         Pb_teo = komm.gaussian_q(np.sqrt(2*Eb/No))
 
         # Eb = A**2 * Tb /2 # Valor teste
-        # Tb = 52.36e3 # Valor teste
-        # Rb = 19.09e-6 # Valor teste
+        # Tb = 19.09e-6  # Valor teste
+        # Rb = 1/Tb # Valor teste
 
         # Simulação
-        n_bits = 10000 # Número de bits
+        n_bits = 100000 # Número de bits
         rng=np.random.default_rng(seed=42)
         dms = komm.DiscreteMemorylessSource(
             pmf=[0.5,0.5],
@@ -132,7 +132,7 @@ def main():
         ax[0].set_xlim(0, 10*Tb/1e-6)
         ax[0].set_xlabel("$t$ (µs)")
         ax[0].set_ylabel("$s(t)$ (V)")
-        ax[0].set_xticks(np.arange(0, 1001, 100))
+        # ax[0].set_xticks(np.arange(0, 1001, 100))
         ax[0].grid()
 
         signal_power = A**2 / 2
