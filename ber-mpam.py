@@ -37,7 +37,7 @@ def main():
     pulse = komm.RectangularPulse()
     tx_filter = komm.TransmitFilter(pulse, sps)
 
-    EbNo_dB_list = np.arange(-8, 9)
+    EbNo_dB_list = np.arange(-8+M//4, 8+M//4 + 1)
     EbNo_list = 10**(EbNo_dB_list/10)
 
     bits = dms(n_bits)
@@ -48,19 +48,42 @@ def main():
     ts *= Ts
 
     # BER Teórica
-    Pb_list = []
+    Pb_teo_list = []
     for EbNo in EbNo_list:
         EsNo = k * EbNo
         Ps = 2 * (M - 1)/ M * \
             komm.gaussian_q(np.sqrt(6/(M**2 - 1) * EsNo))
         Pb = Ps / k
-        Pb_list.append(Pb)
+        Pb_teo_list.append(Pb)
 
-    # awgn = 
+    # BER Simulada
+    Pb_sim_list = []
+    for EbNo in EbNo_list:
+        signal_power = Es*Rs
+        No = Eb / EbNo
+        noise_power = (No/2) * fa
+        snr = signal_power/noise_power
+        awgn = komm.AWGNChannel(signal_power, snr, rng)
+        r_t = awgn(s_t)
+
+        t = np.arange(0.0, Ts, Ta)
+        hr_t = pulse.waveform(Ts - t)
+
+        y_t = np.convolve(hr_t, r_t)/sps
+        y_t = y_t[0:s_t.size]
+        y_n = y_t[sps-1::sps] # Amostrador de sps para sps
+        # y_n /= A # Normalização
+
+        bits_hat = mod.demodulate_hard(y_n/A)
+        Pb = np.mean(bits_hat != bits)
+        Pb_sim_list.append(Pb)
+        
+
+    
 
     tabs = st.tabs(["Sinais", "BER"])
     with tabs[0]:
-        fig, ax = plt.subplots(3, 1, figsize=(6,8))
+        fig, ax = plt.subplots(2, 1, figsize=(6,4))
         ax[0].plot(ts/1e-6, s_t)
 
         ax[0].set_xlim(0, 10*Ts/1e-6)
@@ -70,12 +93,28 @@ def main():
         ax[0].set_yticks(A*np.arange(-(M-1), M, 2))
         ax[0].set_ylabel("$s(t)$")
         ax[0].grid()
+
+        ax[1].plot(ts/1e-6, y_t) # type: ignore
+
+        ax[1].set_xlim(0, 10*Ts/1e-6)
+        ax[1].set_xticks(np.arange(11)*Ts/1e-6)
+        ax[1].set_xlabel("$t$ (µs)")
+
+        ax[1].set_yticks(A*np.arange(-(M-1), M, 2))
+        ax[1].set_ylabel("$y(t)$")
+        ax[1].grid()
+
         fig.tight_layout()
         st.pyplot(fig)
     with tabs[1]:
-        fig, ax = plt.subplots(3, 1, figsize=(6,8))
-        ax[0].semilogy(EbNo_dB_list, Pb_list)
-        ax[0].grid()
+        fig, ax = plt.subplots(figsize=(6,4))
+        # ax.plot(EbNo_list, Pb_list)
+        ax.semilogy(EbNo_dB_list, Pb_teo_list, label="Teórico (Gray aprox.)")
+        ax.semilogy(EbNo_dB_list, Pb_sim_list, label="simulado")
+        ax.set_xlabel("$E_b/N_0$ (dB)")
+        ax.set_ylabel("$P_b$")
+        ax.legend()
+        ax.grid()
         fig.tight_layout()
         st.pyplot(fig)
 
