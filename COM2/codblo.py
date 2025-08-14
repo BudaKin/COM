@@ -29,3 +29,6 @@ spc32 = komm.SingleParityCheckCode(3)
 
 hamming74 = komm.HammingCode(3) # p1, p2, p3, portanto parametro 3 (mu)
 # hamming74.length, hamming74.dimension = (7, 4)
+# hamming74.chech_matrix = H
+# hamming74.generator_matrix = G
+# H.T = H transposto
