@@ -15,14 +15,19 @@ komm.global_rng.set(rng)
 st.title("Questão 2: Código de Golay Estendido")
 
 EbN0_dB_list = np.arange(-2, 7)  # Eb/N0 variando de  -2 a 6 dB.
-EbN0= 10**(EbN0_dB_list/10)
+EbN0 = 10**(EbN0_dB_list/10)
 
-awgn = komm.AWGNChannel(signal_power=1.0, snr=EbN0) # Canal AWGN com Eb/𝑁0  variando de −2 a 6 dB.
-bpsk = komm.PSKConstellation(2) # Modulação BPSK.'
+# awgn = komm.AWGNChannel(signal_power=1.0, snr=EbN0) # Canal AWGN com Eb/𝑁0  variando de −2 a 6 dB.
+bpsk = komm.PSKConstellation(2) # Modulação BPSK.
 code = komm.GolayCode(True) # Código de Golay estendido (24, 12).
+code = komm.BlockCode([[1]]) # Código sem codificação (n,n).
 decoder = komm.ExhaustiveSearchDecoder(code) # Decodificação hard de mínima distância.
 
 source = komm.DiscreteMemorylessSource(2) # Padrão dos dados transmitidos
+
+Eb = bpsk.mean_energy() / code.rate
+
+print(Eb)
  
 u = source.emit(10000) # Dados Transmitidos
 
