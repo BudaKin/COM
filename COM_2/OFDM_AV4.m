@@ -1,126 +1,174 @@
-clear all; close all; clc;
+% -------------------------------------------------------------
+% Avaliação 4 – OFDM – COM29008
+% Simulação de um sistema OFDM em banda base
+% Canal AWGN, 64 subportadoras, CP = 16
+% Modulações: 4-QAM, 16-QAM e 64-QAM
+%
+% Especificação (IEEE 802.11 simplificado):
+% - 64 subportadoras OFDM
+% - 16 amostras de prefixo cíclico
+% - 4 subportadoras piloto
+% - 1 componente DC (sempre zero)
+% - 6 zeros PAD nas primeiras subportadoras
+% - 5 zeros PAD nas últimas subportadoras
+% -------------------------------------------------------------
 
-%% Parâmetros
-Nsub  = 64;
-Ncp   = 16;
-SNRdB = -8:4:40;
-Niter = 1e4;
+clear all;
+close all;
+clc;
 
-Mvec = [4 16 64];   % 3 modulações
-kvec = log2(Mvec);  % bits por símbolo
+%% ----------------- PARÂMETROS DO SISTEMA --------------------
 
-dataIndex  = [7:31 35:59];
-pilotIndex = [32 34 60 61];
-dcIndex    = 33;
-Ndata = length(dataIndex);
+Nsub  = 64;            % número total de subportadoras OFDM
+Ncp   = 16;            % tamanho do prefixo cíclico
+SNRdB = -8:4:40;       % SNR em dB: -8, -4, 0, ..., 40
+Niter = 1e4;           % número de iterações (símbolos OFDM) por ponto de SNR
 
-BER = zeros(length(SNRdB),3);
+% Conjunto de ordens de modulação QAM
+Mvec = [4 16 64];      % 4-QAM (QPSK), 16-QAM, 64-QAM
 
-%% LOOP POR SNR
-for s = 1:length(SNRdB)
+% Vetor para acumular a BER
+BER = zeros(length(SNRdB), length(Mvec));
 
-    SNR = SNRdB(s);
+%% ----------------- MAPEAMENTO DAS SUBPORTADORAS -------------
 
-    % ---------------------------------------------------------------------
-    % 1) Gerar símbolos transmitidos para as 3 modulações (vetorizado)
-    % ---------------------------------------------------------------------
-    dataSym_tx = zeros(Ndata, Niter, 3);
-    for m = 1:3
-        dataSym_tx(:,:,m) = randi([0 Mvec(m)-1], Ndata, Niter);
-    end
+% Estrutura de 64 subportadoras (IEEE 802.11):
+% - 6 subportadoras iniciais de PAD (zeros)
+% - 48 subportadoras de dados
+% - 4 subportadoras piloto
+% - 1 subportadora DC (zero)
+% - 5 subportadoras finais de PAD (zeros)
 
-    % ---------------------------------------------------------------------
-    % 2) Modulação QAM (vetorizada por "dimensão 3")
-    % ---------------------------------------------------------------------
-    symbols_tx = zeros(Ndata, Niter, 3);
-    for m = 1:3
-        tmp = qammod(dataSym_tx(:,:,m), Mvec(m));
-        tmp = tmp ./ sqrt(mean(abs(tmp(:)).^2)); % normaliza
-        symbols_tx(:,:,m) = tmp;
-    end
+dataIndex  = [7:31 35:59];   % índices das 48 subportadoras de dados
+pilotIndex = [32 34 60 61];  % índices das 4 subportadoras piloto
+dcIndex    = 33;             % índice da subportadora DC (sempre zero)
 
-    % ---------------------------------------------------------------------
-    % 3) Montagem do vetor X (64 subportadoras)
-    % ---------------------------------------------------------------------
-    X = zeros(Nsub, Niter, 3);
-    X(dataIndex,:,:) = symbols_tx;
-    X(pilotIndex,:,:) = 1;
-    X(dcIndex,:,:)    = 0;
+Ndata = length(dataIndex);   % número de subportadoras de dados (48)
 
-    % ---------------------------------------------------------------------
-    % 4) IFFT vetorizada
-    % ---------------------------------------------------------------------
-    x = ifft(X, Nsub, 1);
+%% ----------------- LAÇO SOBRE MODULAÇÕES ---------------------
 
-    % ---------------------------------------------------------------------
-    % 5) Adicionar CP (vetorizado)
-    % ---------------------------------------------------------------------
-    x_cp = [x(end-Ncp+1:end,:,:); x];
+for m = 1:length(Mvec)
+    
+    M = Mvec(m);          % ordem da modulação atual
+    k = log2(M);          % número de bits por símbolo QAM
+    
+    fprintf('\n--- Simulação para M = %d-QAM ---\n', M);
+    
+    %% -------------- LAÇO SOBRE VALORES DE SNR ----------------
+    
+    for s = 1:length(SNRdB)
+        
+        SNR = SNRdB(s);
+        
+        % Contadores de erros e bits transmitidos
+        numErr  = 0;
+        numBits = 0;
+        
+        %% ---------- LAÇO PRINCIPAL DE SIMULAÇÃO --------------
+        % Cada iteração transmite 1 símbolo OFDM (48 símbolos QAM de dados)
+        
+        for it = 1:Niter
+            
+            % 1) Geração dos símbolos de informação (inteiros 0..M-1)
+            %    Cada subportadora de dados carrega 1 símbolo QAM.
+            dataSym_tx = randi([0 M-1], Ndata, 1);
+            
+            % 2) Modulação QAM em banda base -------------------
+            %    qammod padrão (inteiro → símbolo complexo)
+            %    (mapeamento Gray por padrão no MATLAB)
+            symbols_tx = qammod(dataSym_tx, M);
+            
+            % Normalização para potência média unitária
+            symbols_tx = symbols_tx / sqrt(mean(abs(symbols_tx).^2));
+            
+            % 3) Montagem do vetor de subportadoras ------------
+            %    X: vetor de 64 amostras em frequência (domínio da FFT)
+            X = zeros(Nsub, 1);
+            
+            %   - Insere símbolos de dados nas subportadoras de dados
+            X(dataIndex) = symbols_tx;
+            
+            %   - Insere pilotos (valores conhecidos, por ex. +1)
+            X(pilotIndex) = 1 + 0j;
+            
+            %   - Subportadora DC é forçada a zero
+            X(dcIndex) = 0;
+            
+            %   - Demais subportadoras (PAD) já são zero
+            %     por causa da inicialização X = 0.
+            
+            % 4) IFFT: converte para o domínio do tempo --------
+            x = ifft(X, Nsub);   % símbolo OFDM em banda base (tempo discreto)
+            
+            % 5) Adiciona prefixo cíclico ----------------------
+            x_cp = [x(end-Ncp+1:end); x];  % concatena CP + símbolo OFDM
+            
+            % 6) Canal AWGN ------------------------------------
+            %    Ruído branco com SNR especificada em relação
+            %    à potência medida do sinal transmitido.
+            y_cp = awgn(x_cp, SNR, 'measured');
+            
+            % 7) Remoção do prefixo cíclico --------------------
+            y = y_cp(Ncp+1:end);
+            
+            % 8) FFT: volta para o domínio da frequência -------
+            Y = fft(y, Nsub);
+            
+            % 9) Equalização em frequência ---------------------
+            %    Canal gaussiano ideal (h = 1), logo não é
+            %    necessário dividir por H(f). Mantemos Y.
+            Yeq = Y;
+            
+            % 10) Seleciona apenas as subportadoras de dados ---
+            symbols_rx = Yeq(dataIndex);
+            
+            % Normaliza novamente para potência média ~1
+            % symbols_rx = symbols_rx / sqrt(mean(abs(symbols_rx).^2));
+            
+            % 11) Demodulação QAM ------------------------------
+            %     símbolos recebidos → inteiros 0..M-1
+            dataSym_rx = qamdemod(symbols_rx, M);
+            
+            % 12) Conversão inteiro → bits (para BER de bits) ---
+            %     Converte cada símbolo em k bits (linha por símbolo)
+            bits_tx_mat = de2bi(dataSym_tx, k, 'left-msb');
+            bits_rx_mat = de2bi(dataSym_rx, k, 'left-msb');
+            
+            % Empilha em vetores coluna
+            bits_tx_vec = bits_tx_mat.';
+            bits_rx_vec = bits_rx_mat.';
+            bits_tx_vec = bits_tx_vec(:);
+            bits_rx_vec = bits_rx_vec(:);
+            
+            % 13) Cálculo de erros de bit ----------------------
+            numErr  = numErr  + sum(bits_rx_vec ~= bits_tx_vec);
+            numBits = numBits + length(bits_tx_vec);
+            
+        end % for it
+        
+        % 14) Cálculo da BER para este ponto de SNR -----------
+        BER(s, m) = numErr / numBits;
+        
+        fprintf('SNR = %3d dB -> BER = %.3e\n', SNR, BER(s, m));
+        
+    end % for s
+    
+end % for m
 
-    % ---------------------------------------------------------------------
-    % 6) Canal AWGN (por modulação)
-    % ---------------------------------------------------------------------
-    y_cp = zeros(size(x_cp));
-    for m = 1:3
-        % reshape ajuda awgn a aplicar corretamente
-        tmp = awgn(x_cp(:,:,m), SNR, 'measured');
-        y_cp(:,:,m) = tmp;
-    end
+%% ------------------ GRÁFICO DA BER ---------------------------
 
-    % ---------------------------------------------------------------------
-    % 7) Remover CP
-    % ---------------------------------------------------------------------
-    y = y_cp(Ncp+1:end,:,:);
-
-    % ---------------------------------------------------------------------
-    % 8) FFT vetorizada
-    % ---------------------------------------------------------------------
-    Y = fft(y, Nsub, 1);
-
-    % 9) Equalização trivial (canal = 1)
-    Yeq = Y;
-
-    % ---------------------------------------------------------------------
-    % 10) Selecionar subportadoras de dados
-    % ---------------------------------------------------------------------
-    symbols_rx = Yeq(dataIndex,:,:);
-
-    % Normalizar novamente
-    for m = 1:3
-        tmp = symbols_rx(:,:,m);
-        tmp = tmp./sqrt(mean(abs(tmp(:)).^2));
-        symbols_rx(:,:,m) = tmp;
-    end
-
-    % ---------------------------------------------------------------------
-    % 11) Demodulação e BER
-    % ---------------------------------------------------------------------
-    for m = 1:3
-
-        dataSym_rx = qamdemod(symbols_rx(:,:,m), Mvec(m));
-
-        k = kvec(m);
-
-        % Bits TX e RX (converter tudo de uma vez)
-        bits_tx = reshape(de2bi(dataSym_tx(:,:,m), k, 'left-msb').', [], 1);
-        bits_rx = reshape(de2bi(dataSym_rx      , k, 'left-msb').', [], 1);
-
-        % BER
-        BER(s,m) = sum(bits_tx ~= bits_rx) / length(bits_tx);
-    end
-
-    fprintf("SNR = %3d dB  ->  BER = [%.3e  %.3e  %.3e]\n", ...
-        SNR, BER(s,1), BER(s,2), BER(s,3));
-
-end
-
-%% Plot
 figure;
-semilogy(SNRdB, BER(:,1),'bo-','LineWidth',2); hold on;
-semilogy(SNRdB, BER(:,2),'rs-','LineWidth',2);
-semilogy(SNRdB, BER(:,3),'k^-','LineWidth',2);
+semilogy(SNRdB, BER(:,1), 'bo-','LineWidth',2); hold on;
+semilogy(SNRdB, BER(:,2), 'rs-','LineWidth',2);
+semilogy(SNRdB, BER(:,3), 'k^-','LineWidth',2);
 grid on;
-xlabel('SNR (dB)');
-ylabel('BER');
+
+xlabel('SNR (dB)','Interpreter','latex');
+ylabel('BER','Interpreter','latex');
+title('BER de um sistema OFDM (64 subportadoras, CP=16, AWGN)','Interpreter','latex');
+
 legend('4-QAM','16-QAM','64-QAM','Location','southwest');
-title('BER OFDM Vetorizado – 64 subportadoras, CP=16, AWGN');
+
+% -------------------------------------------------------------
+% Fim do script
+% -------------------------------------------------------------
