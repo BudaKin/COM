@@ -155,10 +155,22 @@ figure;
 semilogy(SNRdB, BER(:,1), 'bo-','LineWidth',2); hold on;
 semilogy(SNRdB, BER(:,2), 'rs-','LineWidth',2);
 semilogy(SNRdB, BER(:,3), 'k^-','LineWidth',2);
+semilogy(SNRdB, BER(:,1), 'bo-','LineWidth',2); hold on;
+semilogy(SNRdB, BER(:,2), 'rs-','LineWidth',2);
+semilogy(SNRdB, BER(:,3), 'k^-','LineWidth',2);
 grid on;
 
 xlabel('SNR (dB)','Interpreter','latex');
 ylabel('BER','Interpreter','latex');
 title('BER de um sistema OFDM (64 subportadoras, CP=16, AWGN)','Interpreter','latex');
 
+
+xlabel('SNR (dB)','Interpreter','latex');
+ylabel('BER','Interpreter','latex');
+title('BER de um sistema OFDM (64 subportadoras, CP=16, AWGN)','Interpreter','latex');
+
 legend('4-QAM','16-QAM','64-QAM','Location','southwest');
+
+% -------------------------------------------------------------
+% Fim do script
+% -------------------------------------------------------------
